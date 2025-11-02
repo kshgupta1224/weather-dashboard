@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Weather Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="container">
+    <h1>Weather Dashboard</h1>
+
+    <form id="search-form" class="search">
+      <input id="city-input" type="text" placeholder="Enter city (e.g. London)" required />
+      <button type="submit">Search</button>
+    </form>
+
+    <section id="current-weather" class="card hidden">
+      <h2 id="current-city"></h2>
+      <div class="current-meta">
+        <div id="current-temp" class="big"></div>
+        <div id="current-desc"></div>
+      </div>
+      <ul id="current-details" class="details"></ul>
+    </section>
+
+    <section id="forecast" class="cards hidden">
+      <h3>5-Day Forecast</h3>
+      <div id="forecast-cards" class="forecast-grid"></div>
+    </section>
+
+    <footer>
+      <small>Data from OpenWeatherMap. Replace the API key in script.js with your key.</small>
+    </footer>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
