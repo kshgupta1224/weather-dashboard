@@ -1,6 +1,7 @@
-// Weather Dashboard client script
-// Replace the API key below with your OpenWeatherMap API key
-const API_KEY = 'YOUR_API_KEY_HERE';
+// Weather Dashboard client script using National Weather Service API
+// No API key needed! But we need a User-Agent header
+
+const USER_AGENT = 'WeatherDashboard/1.0 (kshitij.gupta@live.com)'; // Replace with your contact info
 
 const EL = {
   form: document.getElementById('search-form'),
@@ -23,70 +24,82 @@ EL.form.addEventListener('submit', (e) => {
 
 async function fetchWeather(city) {
   try {
-    const cw = await fetchCurrent(city);
-    renderCurrent(cw);
-
-    const fc = await fetchForecast(city);
-    renderForecast(fc);
+    // Step 1: Geocode the city to get lat/lon
+    const coords = await geocodeCity(city);
+    
+    // Step 2: Get NWS grid info from coordinates
+    const gridInfo = await fetchGridInfo(coords.lat, coords.lon);
+    
+    // Step 3: Fetch forecast data
+    const forecast = await fetchForecast(gridInfo);
+    
+    renderCurrent(forecast, city, coords);
+    renderForecast(forecast.properties.periods);
   } catch (err) {
-    alert('Could not fetch weather. Check console for details.');
+    alert('Could not fetch weather. ' + err.message);
     console.error(err);
   }
 }
 
-async function fetchCurrent(city) {
-  const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&units=metric&appid=${API_KEY}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('Current weather fetch failed');
+// Use a free geocoding service to convert city name to coordinates
+async function geocodeCity(city) {
+  // Using Nominatim (OpenStreetMap's geocoder - free, no API key)
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)},USA&format=json&limit=1`;
+  const res = await fetch(url, {
+    headers: { 'User-Agent': USER_AGENT }
+  });
+  if (!res.ok) throw new Error('Geocoding failed');
+  const data = await res.json();
+  if (!data || data.length === 0) {
+    throw new Error('City not found. Try adding state (e.g., "Seattle, WA")');
+  }
+  return {
+    lat: parseFloat(data[0].lat),
+    lon: parseFloat(data[0].lon),
+    displayName: data[0].display_name
+  };
+}
+
+// Get NWS grid information from coordinates
+async function fetchGridInfo(lat, lon) {
+  const url = `https://api.weather.gov/points/${lat.toFixed(4)},${lon.toFixed(4)}`;
+  const res = await fetch(url, {
+    headers: { 'User-Agent': USER_AGENT }
+  });
+  if (!res.ok) {
+    if (res.status === 404) {
+      throw new Error('Location outside US. NWS API only covers US locations.');
+    }
+    throw new Error('Failed to get grid info');
+  }
+  const data = await res.json();
+  return data.properties;
+}
+
+// Fetch forecast from NWS
+async function fetchForecast(gridInfo) {
+  const url = gridInfo.forecast;
+  const res = await fetch(url, {
+    headers: { 'User-Agent': USER_AGENT }
+  });
+  if (!res.ok) throw new Error('Forecast fetch failed');
   return res.json();
 }
 
-async function fetchForecast(city) {
-  // 5 day / 3 hour forecast endpoint
-  const url = `https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(city)}&units=metric&appid=${API_KEY}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('Forecast fetch failed');
-  const data = await res.json();
-  // Group into daily summaries
-  return summarizeDailyForecast(data.list);
-}
-
-function summarizeDailyForecast(list) {
-  // list: array of 3-hour forecasts. Group by date (YYYY-MM-DD)
-  const days = {};
-  list.forEach(item => {
-    const date = item.dt_txt.split(' ')[0];
-    if (!days[date]) days[date] = [];
-    days[date].push(item);
-  });
-  // Take a representative item for each day (e.g., midday or the first)
-  const summaries = Object.keys(days).map(date => {
-    const items = days[date];
-    // Try to find item close to 12:00
-    let rep = items.find(i => i.dt_txt.includes('12:00:00')) || items[Math.floor(items.length/2)];
-    const temps = items.map(i => i.main.temp);
-    const avgTemp = (temps.reduce((a,b)=>a+b,0))/temps.length;
-    return {
-      date,
-      icon: rep.weather[0].icon,
-      desc: rep.weather[0].description,
-      temp: Math.round(avgTemp),
-    };
-  });
-  // Return next 5 entries (including today)
-  return summaries.slice(0,5);
-}
-
-function renderCurrent(data) {
+function renderCurrent(forecast, cityName, coords) {
   EL.currentSection.classList.remove('hidden');
-  EL.currentCity.textContent = `${data.name}, ${data.sys?.country || ''}`;
-  EL.currentTemp.textContent = `${Math.round(data.main.temp)}°C`;
-  EL.currentDesc.textContent = capitalize(data.weather[0].description);
+  
+  const current = forecast.properties.periods[0];
+  
+  EL.currentCity.textContent = cityName;
+  EL.currentTemp.textContent = `${current.temperature}°${current.temperatureUnit}`;
+  EL.currentDesc.textContent = current.shortForecast;
+  
   EL.currentDetails.innerHTML = '';
   const details = [
-    ['Feels like', `${Math.round(data.main.feels_like)}°C`],
-    ['Humidity', `${data.main.humidity}%`],
-    ['Wind', `${Math.round(data.wind.speed)} m/s`],
+    ['Conditions', current.detailedForecast],
+    ['Wind', current.windSpeed + ' ' + current.windDirection],
+    ['Period', current.name],
   ];
   details.forEach(([k,v]) => {
     const li = document.createElement('li');
@@ -95,25 +108,22 @@ function renderCurrent(data) {
   });
 }
 
-function renderForecast(list) {
+function renderForecast(periods) {
   EL.forecastSection.classList.remove('hidden');
   EL.forecastCards.innerHTML = '';
-  list.forEach(day => {
+  
+  // NWS returns 12-hour periods, take up to 10 periods (5 days)
+  const forecastPeriods = periods.slice(0, 10);
+  
+  forecastPeriods.forEach(period => {
     const card = document.createElement('div');
     card.className = 'forecast-card';
     card.innerHTML = `
-      <div class="small">${formatDateShort(day.date)}</div>
-      <img src="https://openweathermap.org/img/wn/${day.icon}@2x.png" alt="${day.desc}" width="60" height="60" />
-      <div class="big">${day.temp}°C</div>
-      <div class="small">${capitalize(day.desc)}</div>
+      <div class="small">${period.name}</div>
+      <img src="${period.icon}" alt="${period.shortForecast}" width="60" height="60" />
+      <div class="big">${period.temperature}°${period.temperatureUnit}</div>
+      <div class="small">${period.shortForecast}</div>
     `;
     EL.forecastCards.appendChild(card);
   });
-}
-
-function capitalize(s){ return s && s[0].toUpperCase() + s.slice(1) }
-
-function formatDateShort(isoDate){
-  const d = new Date(isoDate);
-  return d.toLocaleDateString(undefined, { weekday: 'short', month:'short', day:'numeric' });
 }
