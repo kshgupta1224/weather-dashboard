@@ -22,6 +22,96 @@ EL.form.addEventListener('submit', (e) => {
   fetchWeather(city);
 });
 
+// Add event listener for location button
+document.getElementById('location-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('location-btn');
+  
+  if (!navigator.geolocation) {
+    alert('Geolocation is not supported by your browser');
+    return;
+  }
+
+  // Add loading state
+  btn.classList.add('loading');
+  btn.disabled = true;
+
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      try {
+        await fetchWeatherByCoords(position.coords.latitude, position.coords.longitude);
+      } catch (err) {
+        alert('Could not fetch weather for your location. ' + err.message);
+        console.error(err);
+      } finally {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+      }
+    },
+    (error) => {
+      btn.classList.remove('loading');
+      btn.disabled = false;
+      
+      let message = 'Could not get your location. ';
+      switch(error.code) {
+        case error.PERMISSION_DENIED:
+          message += 'Please allow location access.';
+          break;
+        case error.POSITION_UNAVAILABLE:
+          message += 'Location information unavailable.';
+          break;
+        case error.TIMEOUT:
+          message += 'Location request timed out.';
+          break;
+        default:
+          message += 'An unknown error occurred.';
+      }
+      alert(message);
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
+    }
+  );
+});
+
+// New function to fetch weather directly from coordinates
+async function fetchWeatherByCoords(lat, lon) {
+  try {
+    // Get city name from coordinates for display
+    const locationName = await reverseGeocode(lat, lon);
+    
+    // Get NWS grid info from coordinates
+    const gridInfo = await fetchGridInfo(lat, lon);
+    
+    // Fetch forecast data
+    const forecast = await fetchForecast(gridInfo);
+    
+    renderCurrent(forecast, locationName, { lat, lon });
+    renderForecast(forecast.properties.periods);
+    
+    // Optional: Update input field with location name
+    EL.input.value = locationName;
+  } catch (err) {
+    throw err;
+  }
+}
+
+// New function for reverse geocoding (coords to city name)
+async function reverseGeocode(lat, lon) {
+  const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`;
+  const res = await fetch(url, {
+    headers: { 'User-Agent': USER_AGENT }
+  });
+  if (!res.ok) throw new Error('Reverse geocoding failed');
+  const data = await res.json();
+  
+  // Extract city and state
+  const city = data.address.city || data.address.town || data.address.village || data.address.county;
+  const state = data.address.state;
+  return state ? `${city}, ${state}` : city || 'Your Location';
+}
+
 async function fetchWeather(city) {
   try {
     // Step 1: Geocode the city to get lat/lon

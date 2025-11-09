@@ -13,6 +13,16 @@
     <form id="search-form" class="search">
       <input id="city-input" type="text" placeholder="Enter US city (e.g. Seattle, WA)" required />
       <button type="submit">Search</button>
+      <button type="button" id="location-btn" class="location-btn" title="Use my location">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <circle cx="12" cy="12" r="3"></circle>
+          <line x1="12" y1="2" x2="12" y2="6"></line>
+          <line x1="12" y1="18" x2="12" y2="22"></line>
+          <line x1="2" y1="12" x2="6" y2="12"></line>
+          <line x1="18" y1="12" x2="22" y2="12"></line>
+        </svg>
+      </button>
     </form>
 
     <section id="current-weather" class="card hidden">

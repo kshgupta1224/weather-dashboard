@@ -129,6 +129,79 @@ h3 {
   transform: translateY(0);
 }
 
+/* Location Button */
+.location-btn {
+  background: white;
+  color: var(--accent);
+  border: none;
+  padding: 16px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+}
+
+.location-btn:hover {
+  background: var(--accent);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.location-btn:active {
+  transform: translateY(0);
+}
+
+.location-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.location-btn.loading svg {
+  animation: spin 1s linear infinite;
+}
+
+.location-btn svg {
+  display: block;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Update search form for better layout */
+.search {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 28px;
+  animation: slideDown 0.5s ease-out 0.2s both;
+}
+
+/* Responsive: Stack buttons on mobile */
+@media (max-width: 480px) {
+  .search {
+    flex-wrap: wrap;
+  }
+  
+  .search input {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+  
+  .search button {
+    flex: 1;
+  }
+  
+  .location-btn {
+    min-width: 80px;
+  }
+}
+
 /* Cards */
 .card {
   background: var(--card-bg);
